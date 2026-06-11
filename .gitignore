@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# ML models
+*.pkl
+*.joblib
+
+# Logs
+*.log
+logs/
+
+# Docker local data
+postgres_data/
+rabbitmq_data/
+grafana_data/
+
+# IDE
+.vscode/
