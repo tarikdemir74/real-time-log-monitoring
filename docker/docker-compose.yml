@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: logmonitor
+      POSTGRES_PASSWORD: logmonitor
+      POSTGRES_DB: logmonitor
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logmonitor"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  demoapi:
+    build:
+      context: ../src/DemoApi
+    ports:
+      - "8080:8080"
+    environment:
+      RabbitMq__Host: rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  logprocessor:
+    build:
+      context: ../src/LogProcessor
+    environment:
+      PYTHONUNBUFFERED: "1"
+      RABBITMQ_HOST: rabbitmq
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: logmonitor
+      POSTGRES_PASSWORD: logmonitor
+      POSTGRES_DB: logmonitor
+    volumes:
+      - ../ml/models:/app/models
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  traffic-simulator:
+    build:
+      context: ../src/TrafficSimulator
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DEMO_API_URL: http://demoapi:8080
+    depends_on:
+      - demoapi
+    profiles:
+      - tools
+
+  grafana:
+    image: grafana/grafana-oss:11.3.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  grafana_data:
