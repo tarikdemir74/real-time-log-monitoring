@@ -28,5 +28,12 @@ postgres_data/
 rabbitmq_data/
 grafana_data/
 
+# ML evaluation outputs (regenerate via ml/evaluation/run_evaluation.py)
+ml/evaluation/results/
+
 # IDE
 .vscode/
+.idea/
+
+# Claude Code local settings (per-machine permissions/config, not project config)
+.claude/
