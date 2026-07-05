@@ -1,0 +1,476 @@
+PROJECT: Real-Time Log Monitoring and Anomaly Detection System
+=========================================================
+	1	PROJECT OVERVIEW =========================================================
+Goal:
+Design and implement a real-time log monitoring and anomaly detection platform that:
+	•	Collects logs from a demo application
+	•	Uses an event-driven architecture
+	•	Processes logs in real time
+	•	Detects anomalies using multiple approaches
+	•	Stores monitoring data
+	•	Visualizes system behavior through dashboards
+	•	Supports future scalability
+This project focuses on monitoring and anomaly detection, not on building a complete business application.
+
+---------------------------------------------------------
+TECHNOLOGY DECISION
+---------------------------------------------------------
+
+Demo API:
+.NET Web API
+
+Traffic Simulator:
+Python script/service
+
+Message Broker:
+RabbitMQ
+
+Log Processor:
+Python background worker/service
+
+Database:
+PostgreSQL
+
+Dashboard:
+Grafana
+
+Machine Learning:
+scikit-learn Isolation Forest inside LogProcessor
+
+Deployment:
+Docker Compose for local deployment
+========================================================= 2. HIGH-LEVEL ARCHITECTURE
+TrafficSimulator (Python)
+        ↓ HTTP requests
+DemoApi (.NET)
+        ↓ structured log events
+RabbitMQ
+        ↓ messages
+LogProcessor (Python)
+        ↓ raw logs / aggregations / anomalies
+PostgreSQL
+        ↓
+Grafana ↓ Alerts
+========================================================= 3. SYSTEM COMPONENTS
+
+3.1 Demo API
+Purpose:
+Generate realistic application logs.
+Important:
+The Demo API DOES NOT require its own database.
+The API is only a log-producing application.
+Example endpoints:
+POST /api/login
+GET /api/products
+POST /api/cart/add
+POST /api/payment/checkout
+Example response behavior:
+	•	successful requests
+	•	failed requests
+	•	slow requests
+	•	timeout simulations
+Each request produces a structured log.
+Example log:
+{ "timestamp": "2026-06-11T14:30:00", "endpoint": "/api/payment/checkout", "statusCode": 500, "responseTimeMs": 1850, "userId": "u-102", "ip": "192.168.1.44", "message": "Payment provider timeout" }
+Success Criteria:
+API runs successfully and generates structured logs.
+
+---------------------------------------------------------
+3.2 Traffic Simulator
+---------------------------------------------------------
+
+Purpose:
+
+Generate realistic user behavior by sending HTTP requests to the Demo API.
+
+Important:
+
+The Traffic Simulator DOES NOT generate logs directly.
+
+It only simulates users by calling Demo API endpoints.
+
+Correct flow:
+
+Traffic Simulator
+↓
+HTTP Requests
+↓
+Demo API
+↓
+Structured Logs
+↓
+RabbitMQ
+
+Responsibilities:
+
+- send normal user requests to Demo API
+- simulate different traffic patterns
+- trigger controlled anomaly scenarios
+- create repeatable test cases for evaluation
+
+Example requests:
+
+POST /api/login
+
+GET /api/products
+
+POST /api/cart/add
+
+POST /api/payment/checkout
+
+Normal traffic examples:
+
+/login
+100–300 ms
+
+/products
+80–250 ms
+
+/payment/checkout
+200–600 ms
+
+error rate:
+1–3%
+
+Injected anomaly scenarios:
+
+- latency spike
+- error burst
+- request flood
+- abnormal payment failures
+- unusual endpoint usage
+
+Example anomaly trigger:
+
+Traffic Simulator sends a special header:
+
+X-Simulate-Latency: true
+
+Then Demo API delays the response and produces a slow request log.
+
+Reason:
+
+This approach is more realistic than generating fake logs directly because logs are produced by the actual Demo API, similar to a real production system.
+
+Success Criteria:
+
+The Traffic Simulator can generate normal traffic and controlled anomaly scenarios by sending HTTP requests to the Demo API.
+
+3.3 RabbitMQ
+Purpose:
+Provide asynchronous communication between the API and the monitoring system.
+Why RabbitMQ?
+Without RabbitMQ:
+API → Process logs → Save logs → Detect anomalies
+API becomes responsible for everything.
+With RabbitMQ:
+API → Send event RabbitMQ → Store event in queue Processor → Consume and process later
+Benefits:
+	•	event-driven architecture
+	•	loose coupling
+	•	asynchronous processing
+	•	better scalability
+	•	prevents API slowdowns
+	•	messages survive temporary processor failures
+RabbitMQ is NOT used for storage.
+RabbitMQ is only responsible for transporting events.
+Success Criteria:
+API publishes logs successfully and Processor consumes them.
+
+---------------------------------------------------------
+3.4 Log Processor
+---------------------------------------------------------
+
+Technology:
+
+Python service / background worker.
+
+The Log Processor will NOT be a web API in the initial version.
+
+It will run continuously and consume log messages from RabbitMQ.
+
+Purpose:
+
+Consume logs from RabbitMQ, process them, detect anomalies, and store results in PostgreSQL.
+
+Main responsibilities:
+
+1. Consume structured log messages from RabbitMQ
+
+2. Validate message format
+
+3. Store raw logs in PostgreSQL
+
+4. Perform window-based aggregation
+
+5. Calculate monitoring features:
+   - request_count
+   - error_count
+   - error_rate
+   - avg_latency
+   - p95_latency
+   - unique_ip_count
+
+6. Apply anomaly detection:
+   - static rule-based detection
+   - dynamic baseline detection
+   - Isolation Forest scoring
+
+7. Store detected anomalies in PostgreSQL
+
+8. Support periodic model retraining
+
+Flow:
+
+RabbitMQ
+↓
+Python LogProcessor
+↓
+PostgreSQL
+
+Python libraries:
+
+- pika
+- pandas
+- scikit-learn
+- sqlalchemy
+- psycopg2
+- joblib
+
+Internal module structure:
+
+LogProcessor/
+
+├── main.py
+├── config.py
+├── rabbitmq_consumer.py
+├── database.py
+├── aggregation.py
+├── detection/
+│   ├── rule_based.py
+│   ├── dynamic_baseline.py
+│   └── isolation_forest_detector.py
+├── training/
+│   └── train_model.py
+└── models/
+    └── isolation_forest.pkl
+
+Success Criteria:
+The Log Processor consumes messages from RabbitMQ, stores raw logs, creates aggregated windows, detects anomalies, and writes anomaly records into PostgreSQL.
+ 4. DATABASE DESIGN
+Database:
+PostgreSQL
+Purpose:
+Store monitoring information.
+
+4.1 logs_raw
+Stores individual log events.
+Columns:
+id timestamp endpoint status_code response_time_ms user_id ip message
+
+4.2 logs_agg
+Stores aggregated windows.
+Columns:
+id window_start window_end endpoint
+request_count error_count error_rate
+avg_latency p95_latency
+unique_ip_count
+
+4.3 anomalies
+Stores anomaly records.
+Columns:
+id
+detected_at
+window_start window_end
+endpoint
+anomaly_type severity
+detection_method
+anomaly_score
+description
+========================================================= 5. WINDOW AGGREGATION
+Purpose:
+Convert raw logs into monitoring metrics.
+Window examples:
+1 minute 5 minutes
+Generated features:
+request_count
+error_count
+error_rate
+avg_latency
+p95_latency
+unique_ip_count
+Reason:
+Anomalies are easier to detect from aggregated behavior than individual log entries.
+Success Criteria:
+Aggregated metrics are generated continuously.
+========================================================= 6. ANOMALY DETECTION
+The project uses a hybrid detection strategy.
+
+6.1 Static Rule-Based Detection
+Examples:
+error_rate > 10%
+avg_latency > 1000 ms
+request_count exceeds threshold
+Advantages:
+	•	simple
+	•	explainable
+	•	fast
+Purpose:
+Baseline method.
+
+6.2 Dynamic Baseline Detection
+Problem:
+System behavior changes over time.
+A response time that is abnormal today may be normal tomorrow.
+Solution:
+Use rolling statistics.
+Example:
+Current latency
+compared against
+rolling_mean + 3 × rolling_std
+Detection becomes relative to historical behavior.
+Advantages:
+	•	adaptive
+	•	more realistic
+	•	endpoint-specific
+
+---------------------------------------------------------
+6.3 Isolation Forest
+---------------------------------------------------------
+
+Technology:
+
+Python scikit-learn.
+
+Location:
+
+Isolation Forest integration will be implemented inside the Python LogProcessor service.
+
+The model will be trained using aggregated log windows from PostgreSQL.
+
+Training data:
+
+Mostly normal system-generated traffic.
+
+Features:
+
+- request_count
+- error_rate
+- avg_latency
+- p95_latency
+- unique_ip_count
+- encoded endpoint
+
+Training workflow:
+
+1. Collect normal traffic through Traffic Simulator
+2. Demo API produces logs
+3. Logs pass through RabbitMQ
+4. LogProcessor stores logs and creates aggregated windows
+5. Aggregated normal windows are used to train Isolation Forest
+6. Trained model is saved as a .pkl file
+7. LogProcessor loads the model and scores new windows
+
+Important:
+
+No external ML API will be used.
+
+No separate ML web service is required in the initial version.
+
+Isolation Forest runs locally inside the Python LogProcessor.
+
+Output:
+
+- anomaly_score
+- prediction: normal or anomaly
+
+Success Criteria:
+
+The LogProcessor can load the trained model and use it to score new aggregated log windows.
+
+6.4 Hybrid Decision
+Combine:
+Static Rules
+Dynamic Baselines
+Isolation Forest
+Example:
+Rule triggered + Isolation Forest suspicious
+↓
+High-confidence anomaly
+========================================================= 7. MODEL MANAGEMENT
+Problem:
+System behavior evolves over time.
+Solution:
+Periodic Retraining.
+Workflow:
+Collect normal windows
+Remove anomalous windows
+Retrain Isolation Forest
+Deploy updated model
+Recommended Frequency:
+Daily or Weekly
+Important:
+Do NOT retrain using known anomalies.
+Goal:
+Prevent model drift and adapt to changing system behavior.
+========================================================= 8. EVALUATION
+Purpose:
+Compare detection approaches.
+Evaluation Data:
+Controlled anomaly injection from Traffic Simulator.
+Metrics:
+Precision
+Recall
+F1-score
+False Positive Rate
+Detection Latency
+Comparison:
+Rule-Based
+Dynamic Baseline
+Isolation Forest
+Hybrid Detection
+Research Goal:
+Determine which approach performs best.
+========================================================= 9. DASHBOARD
+Tool:
+Grafana
+Visualizations:
+Request Count
+Error Rate
+Average Latency
+P95 Latency
+Endpoint Usage
+Anomaly Timeline
+Anomaly Distribution
+Data Source:
+PostgreSQL
+Success Criteria:
+Real-time monitoring dashboard is available.
+========================================================= 10. ALERTING
+Minimum Version:
+Store alerts in anomalies table.
+Optional:
+Email
+Discord
+Telegram
+Grafana Alerts
+Success Criteria:
+Critical anomalies generate alerts.
+========================================================= 11. DEPLOYMENT
+Development Phase:
+Local environment
+All services run through Docker Compose.
+Target:
+docker compose up
+starts:
+Demo API
+RabbitMQ
+PostgreSQL
+Log Processor
+Grafana
+No cloud deployment required.
+========================================================= 12. PROJECT STRUCTURE
+real-time-log-monitoring/
+├── src/ │ ├── DemoApi/ │ ├── TrafficSimulator/ │ ├── LogProcessor/ │ ├── ml/ │ ├── training/ │ ├── models/ │ ├── evaluation/ │ ├── database/ │ ├── docker/ │ ├── grafana/ │ ├── docs/ │ └── README.md
+========================================================= 13. FINAL CV DESCRIPTION
+Built a real-time log monitoring and anomaly detection platform using .NET Web API, RabbitMQ, PostgreSQL, Grafana, and Isolation Forest. Designed an event-driven architecture for log ingestion, window-based aggregation, adaptive anomaly detection, model retraining, and observability dashboarding.
