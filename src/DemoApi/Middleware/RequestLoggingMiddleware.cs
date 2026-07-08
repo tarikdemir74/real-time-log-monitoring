@@ -27,6 +27,16 @@ public class RequestLoggingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // /health is a Docker/orchestration probe, not application traffic - skip
+        // structured logging and RabbitMQ publishing entirely so frequent polling
+        // (every few seconds, for the container's lifetime) never inflates
+        // logs_raw/logs_agg with a synthetic endpoint or trips anomaly detection.
+        if (context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
         var requestId = Guid.NewGuid().ToString();
 
         int? simulatedLatencyMs = null;
