@@ -31,6 +31,7 @@ def evaluate_window_baseline(
             "severity": "medium",
             "detection_method": "dynamic_baseline",
             "anomaly_score": float(current_avg_latency),
+            "score_unit": "avg_latency_ms",
             "description": (
                 f"avg_latency {current_avg_latency:.1f}ms > rolling baseline "
                 f"{latency_mean:.1f}ms + {STD_MULTIPLIER}*{latency_std:.1f}ms "
@@ -52,6 +53,7 @@ def evaluate_window_baseline(
             "severity": "high",
             "detection_method": "dynamic_baseline",
             "anomaly_score": float(current_error_rate),
+            "score_unit": "error_rate",
             "description": (
                 f"error_rate {current_error_rate:.2f} > rolling baseline "
                 f"{error_rate_mean:.2f} + {STD_MULTIPLIER}*{error_rate_std:.2f} "

@@ -26,7 +26,12 @@ CREATE TABLE IF NOT EXISTS logs_agg (
 
 CREATE TABLE IF NOT EXISTS anomalies (
     id SERIAL PRIMARY KEY,
+    -- detected_at: the underlying event's own timestamp (as logged by DemoApi), not when this
+    -- row was written. processed_at: the wall-clock time LogProcessor actually processed and
+    -- stored this row (set from datetime.now(UTC) in database.py, not a DB-side default, so it
+    -- reflects application processing time specifically).
     detected_at TIMESTAMPTZ NOT NULL,
+    processed_at TIMESTAMPTZ NOT NULL,
     window_start TIMESTAMPTZ NOT NULL,
     window_end TIMESTAMPTZ NOT NULL,
     endpoint TEXT NOT NULL,
@@ -34,6 +39,11 @@ CREATE TABLE IF NOT EXISTS anomalies (
     severity TEXT NOT NULL,
     detection_method TEXT NOT NULL,
     anomaly_score DOUBLE PRECISION,
+    -- score_unit: what anomaly_score actually measures for this row (it is not on a comparable
+    -- scale across detection methods) - e.g. "response_time_ms", "error_rate",
+    -- "isolation_forest_decision_function", "hybrid_tier_rank". Set by whichever detector
+    -- produced the anomaly; see each module in src/LogProcessor/ for the exact value used.
+    score_unit TEXT,
     description TEXT,
     request_id TEXT
 );

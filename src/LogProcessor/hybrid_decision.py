@@ -44,6 +44,7 @@ def evaluate(endpoint: str, detected_at, fired_anomalies: list) -> list:
         "severity": tier.lower(),
         "detection_method": "hybrid",
         "anomaly_score": TIER_SCORE[tier],
+        "score_unit": "hybrid_tier_rank",
         "description": (
             f"Hybrid decision: {tier} confidence ({num_fired}/{len(FAMILIES)} methods fired) - {contributing}"
         ),

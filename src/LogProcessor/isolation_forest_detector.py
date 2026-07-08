@@ -27,6 +27,20 @@ def _load_model():
 
     try:
         _model_bundle = joblib.load(model_path)
+
+        bundle_features = _model_bundle.get("feature_names")
+        if bundle_features != ml_features.FEATURE_NAMES:
+            print(
+                f"[LogProcessor] Isolation Forest model at '{model_path}' was trained on a "
+                f"different feature set than the current ml_features.FEATURE_NAMES - "
+                f"model={bundle_features!r} current={ml_features.FEATURE_NAMES!r}. "
+                f"Refusing to score with a mismatched feature vector; disabling ML-based "
+                f"detection until the model is retrained (run: python train_isolation_forest.py). "
+                f"Rule-based, dynamic-baseline, and hybrid detection are unaffected."
+            )
+            _model_bundle = None
+            return None
+
         holdout_rate = _model_bundle.get("holdout_anomaly_rate")
         holdout_suffix = f", holdout anomaly rate {holdout_rate:.1%}" if holdout_rate is not None else ""
         print(
@@ -72,6 +86,7 @@ def evaluate(entry: dict, detected_at, window_request_count: int, window_error_r
         "severity": "medium",
         "detection_method": "isolation_forest",
         "anomaly_score": score,
+        "score_unit": "isolation_forest_decision_function",
         "description": (
             f"Isolation Forest flagged this request as an outlier (score={score:.4f}, more negative = "
             f"more anomalous). Features: status_code={entry.get('statusCode')}, "

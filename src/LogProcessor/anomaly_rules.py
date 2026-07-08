@@ -20,6 +20,7 @@ def evaluate_request_rules(entry: dict, detected_at) -> list:
             "severity": "medium",
             "detection_method": "rule_based",
             "anomaly_score": float(response_time_ms),
+            "score_unit": "response_time_ms",
             "description": (
                 f"Response time {response_time_ms}ms >= threshold "
                 f"{HIGH_LATENCY_THRESHOLD_MS}ms"
@@ -35,6 +36,7 @@ def evaluate_request_rules(entry: dict, detected_at) -> list:
             "severity": "high",
             "detection_method": "rule_based",
             "anomaly_score": float(status_code),
+            "score_unit": "status_code",
             "description": (
                 f"Status code {status_code} >= threshold {ERROR_STATUS_THRESHOLD}"
             ),
@@ -55,6 +57,7 @@ def evaluate_window_rules(endpoint: str, detected_at, error_rate: float, request
             "severity": "high",
             "detection_method": "rule_based",
             "anomaly_score": float(error_rate),
+            "score_unit": "error_rate",
             "description": (
                 f"Error rate {error_rate:.2f} over {request_count} requests >= threshold "
                 f"{HIGH_ERROR_RATE_THRESHOLD} (min {HIGH_ERROR_RATE_MIN_REQUESTS} requests)"
