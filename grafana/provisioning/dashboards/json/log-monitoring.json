@@ -159,6 +159,26 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 8,
+      "title": "P95 Latency by Endpoint",
+      "description": "Computed directly from logs_raw via percentile_cont(0.95) at query time - not read from logs_agg.p95_latency, which is not populated by the aggregation pipeline.",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 34, "w": 24, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "postgres-logmonitor" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": { "type": "postgres", "uid": "postgres-logmonitor" },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('minute', timestamp) AS \"time\", endpoint, percentile_cont(0.95) WITHIN GROUP (ORDER BY response_time_ms) AS \"value\" FROM logs_raw WHERE $__timeFilter(timestamp) GROUP BY 1, endpoint ORDER BY 1",
+          "refId": "A"
+        }
+      ]
     }
   ]
 }
