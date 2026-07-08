@@ -36,7 +36,12 @@ def handle_log_entry(entry: dict) -> None:
 
 
 def _handle_sigterm(_signum, _frame):
-    raise SystemExit(0)
+    # Only sets a flag (signal-safe) - see rabbitmq_consumer.request_shutdown()
+    # for why this deliberately doesn't raise an exception here: doing so
+    # could interrupt a message mid-processing, inside psycopg2/pika calls
+    # that aren't guaranteed safe to abort asynchronously.
+    print("[LogProcessor] SIGTERM received; will stop after the in-flight message (if any) finishes.")
+    rabbitmq_consumer.request_shutdown()
 
 
 def main() -> None:
