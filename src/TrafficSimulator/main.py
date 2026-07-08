@@ -14,6 +14,37 @@ INVALID_PRODUCT_IDS = [901, 902, 903]
 
 LATENCY_HEADER = {"X-Simulate-Latency": "true"}
 
+READY_TIMEOUT_SECONDS = 30
+READY_POLL_INTERVAL_SECONDS = 0.5
+
+
+def wait_for_demo_api(timeout_seconds: float = READY_TIMEOUT_SECONDS,
+                       interval_seconds: float = READY_POLL_INTERVAL_SECONDS) -> bool:
+    """Polls GET /health until DemoApi responds 200 or the timeout elapses.
+
+    Defense in depth: docker-compose.yml already makes traffic-simulator's
+    startup depend on demoapi's healthcheck (condition: service_healthy), so
+    under normal `docker compose run` usage DemoApi is already up by the time
+    this process starts. This check additionally covers running main.py
+    directly against a DemoApi that isn't managed by this same Compose
+    stack (e.g. started manually, or still finishing its own startup) -
+    a bounded poll instead of a fixed sleep, so it returns as soon as
+    DemoApi is actually ready rather than always waiting a fixed amount.
+    """
+    deadline = time.time() + timeout_seconds
+    url = f"{DEMO_API_URL}/health"
+    while time.time() < deadline:
+        try:
+            response = requests.get(url, timeout=2)
+            if response.status_code == 200:
+                print(f"[TrafficSimulator] DemoApi is ready ({url})")
+                return True
+        except requests.RequestException:
+            pass
+        time.sleep(interval_seconds)
+    print(f"[TrafficSimulator] WARNING: DemoApi not ready after {timeout_seconds}s, proceeding anyway")
+    return False
+
 
 def _request(method: str, path: str, label: str, json=None, headers=None) -> None:
     url = f"{DEMO_API_URL}{path}"
@@ -150,6 +181,8 @@ def main() -> None:
         f"[TrafficSimulator] starting: mode={args.mode} count={args.count} delay={args.delay} "
         f"target={DEMO_API_URL}"
     )
+
+    wait_for_demo_api()
 
     error_call_index = 0
     for i in range(args.count):
