@@ -2,7 +2,7 @@
 
 A real-time log monitoring and anomaly detection platform built as an event-driven pipeline: a demo API produces structured logs under simulated traffic, and a background worker consumes them, aggregates metrics in 1-minute windows, and detects anomalies using four complementary methods (rule-based, dynamic baseline, Isolation Forest, and a hybrid decision layer), all visualized in Grafana. Everything runs locally via Docker Compose — no cloud dependencies.
 
-The full design specification lives in [`Real_Time Log Monitoring and Anomaly Detection System.txt`](./Real_Time%20Log%20Monitoring%20and%20Anomaly%20Detection%20System.txt) in the repo root; this README is the practical, human-facing entry point.
+This README is the practical, human-facing entry point; `CLAUDE.md` in the repo root has the full implementation-level detail (exact thresholds, formulas, schema, and design decisions behind everything summarized here).
 
 ## Architecture
 
