@@ -131,6 +131,14 @@ python3 ml/evaluation/run_evaluation.py
 
 It drives four controlled TrafficSimulator scenarios and reports precision/recall/F1 per detection method into `ml/evaluation/results/evaluation_<timestamp>.{md,csv}`. Ground truth is inferred (not measured) from TrafficSimulator's own deterministic dispatch logic — see the generated report for the exact methodology and caveats.
 
+### Stream vs. simulated-batch comparison
+
+```bash
+python3 ml/evaluation/run_batch_comparison.py --interval-minutes 5
+```
+
+Compares the live streaming pipeline against a **replay-based batch-processing simulation** on the same underlying data — evaluation/research only, not a second production pipeline. The simulation (`src/LogProcessor/batch_simulator.py`) reuses the exact same detection modules the live system uses, unchanged, and only changes *when* they run (fixed intervals instead of immediately per message); the production system remains purely stream-based. Reports latency, responsiveness, and precision/recall/F1 for both modes side by side into `ml/evaluation/results/batch_comparison_<timestamp>.{md,csv}`. See `CLAUDE.md` → "Batch simulation (RQ3)" for the full design and findings.
+
 ## Opening Grafana
 
 ```
